@@ -1,39 +1,38 @@
 use clap::Parser;
-use std::net::{TcpStream, Shutdown};
-use std::io::Read;
-use oftp_rs::dbg_hex;
+use oftp_rs::stream::StreamTransmissionHeader;
+use oftp_rs::commands::ssrm::SSRMMSG;
+use std::net::{Shutdown, TcpStream};
+
 
 #[derive(Parser)]
 struct Args {
-    target: String
+    target: String,
 }
-
 
 fn main() {
     let args = Args::parse();
+    let mut sth = StreamTransmissionHeader {
+        version: 0, flags: 0, length: 0
+    };
 
-    let mut buffer: [u8; 1024] = [0; 1024];
-    
     let mut stream = match TcpStream::connect(&args.target) {
         Ok(stream) => {
-            println!("Connected to {}", args.target);
+            println!("Connecté à {}", args.target);
             stream
-        },
+        }
         Err(e) => {
-            eprintln!("Failed to connect to {}: {}", args.target, e);
+            eprintln!("Connexion à {} impossible : {}", args.target, e);
             std::process::exit(1);
         }
     };
 
-    stream.read(&mut buffer).expect("Failed to read from stream");
+    println!("Message: {:?}", SSRMMSG);
 
-    dbg_hex!(&buffer[..32]);
+    sth.decode(&mut stream).unwrap();
 
-    println!("Received data: {}", String::from_utf8_lossy(&buffer));
+    println!("version: {} | flags: {} | length: {}", sth.version, sth.flags, sth.length);
 
-    stream
-        .shutdown(Shutdown::Both)
-        .expect("Failed to shutdown stream");
+    stream.shutdown(Shutdown::Both).expect("shutdown");
 
-    println!("Disconnected from {}", args.target);
+    println!("Déconnecté de {}", args.target);
 }
