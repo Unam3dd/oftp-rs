@@ -37,8 +37,6 @@ impl StreamTransmissionHeader {
         self.flags = buf[0] & 0xF;
         self.length = (buf[1] as u32) << 16 | (buf[2] as u32) << 8 | (buf[3] as u32);
 
-        dbg!(&self);
-
         Ok(self)
     }
 
