@@ -1,6 +1,5 @@
 use clap::Parser;
 use oftp_rs::stream::StreamTransmissionHeader;
-use oftp_rs::commands::ssrm::SSRMMSG;
 use std::net::{Shutdown, TcpStream};
 
 
@@ -25,8 +24,6 @@ fn main() {
             std::process::exit(1);
         }
     };
-
-    println!("Message: {:?}", SSRMMSG);
 
     sth.decode(&mut stream).unwrap();
 
