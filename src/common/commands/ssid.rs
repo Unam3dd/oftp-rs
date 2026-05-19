@@ -41,6 +41,15 @@ pub enum SsidError {
     EncodeCreditError,
 }
 
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum SsidFieldError {
+    #[error("identification code too long (max 25 characters)")]
+    CodeTooLong,
+
+    #[error("password too long (max 8 characters)")]
+    PasswordTooLong,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SsidMode {
     SendOnly,
@@ -86,6 +95,24 @@ impl Default for Ssid {
 }
 
 impl Ssid {
+    /// Définit le code identifiant (SSIDCODE), paddé à droite avec des espaces.
+    pub fn set_code(&mut self, code: &str) -> Result<&mut Self, SsidFieldError> {
+        if code.len() > 25 {
+            return Err(SsidFieldError::CodeTooLong);
+        }
+        self.code = pad_field::<25>(code);
+        Ok(self)
+    }
+
+    /// Définit le mot de passe (SSIDPSWD), paddé à droite avec des espaces.
+    pub fn set_password(&mut self, password: &str) -> Result<&mut Self, SsidFieldError> {
+        if password.len() > 8 {
+            return Err(SsidFieldError::PasswordTooLong);
+        }
+        self.password = pad_field::<8>(password);
+        Ok(self)
+    }
+
     pub fn decode(&mut self, buf: &[u8]) -> Result<&Self, SsidError> {
         if buf.len() != SSID_LEN {
             return Err(SsidError::InvalidSsidSizeError);
@@ -96,6 +123,7 @@ impl Ssid {
         }
 
         self.level = buf[1];
+        
         if !matches!(self.level, b'1' | b'2' | b'4' | b'5') {
             return Err(SsidError::BadLevelError);
         }
@@ -113,6 +141,7 @@ impl Ssid {
         self.user_data.copy_from_slice(&buf[52..60]);
 
         self.cr = buf[60];
+
         if self.cr != 0x0D && self.cr != 0x8D {
             return Err(SsidError::BadControlReturnError);
         }
@@ -142,13 +171,18 @@ impl Ssid {
         v.extend_from_slice(&self.user_data);
         v.push(self.cr);
 
-        debug_assert_eq!(v.len(), SSID_LEN);
-
         Ok(v)
     }
 }
 
 /// Décode le champ SSIDSDEB (5 chiffres ASCII, 128–99999).
+fn pad_field<const N: usize>(s: &str) -> [u8; N] {
+    let mut buf = [b' '; N];
+    let n = s.len().min(N);
+    buf[..n].copy_from_slice(&s.as_bytes()[..n]);
+    buf
+}
+
 fn parse_buffer_size_field(field: &[u8]) -> Result<u32, SsidError> {
     if field.len() != 5 || !field.iter().all(|b| b.is_ascii_digit()) {
         return Err(SsidError::BadBufferSizeError);
@@ -189,12 +223,17 @@ fn encode_buffer_size_field(value: u32) -> Result<[u8; 5], SsidError> {
 }
 
 fn encode_credit_field(value: u16) -> Result<[u8; 3], SsidError> {
+    
     if value > CREDIT_MAX {
         return Err(SsidError::EncodeCreditError);
     }
+
     let mut buf = [b'0'; 3];
+    
     let s = format!("{value:03}");
+    
     buf.copy_from_slice(s.as_bytes());
+    
     Ok(buf)
 }
 
@@ -281,6 +320,23 @@ mod decode_tests {
         let mut ssid = Ssid::default();
         let buf = sample_packet();
         assert!(ssid.decode(&buf).is_ok());
+    }
+
+    #[test]
+    fn test_set_code() {
+        let mut ssid = Ssid::default();
+        ssid.set_code("O01779122072341").unwrap();
+        assert_eq!(&ssid.code[..15], b"O01779122072341");
+        assert_eq!(&ssid.code[15..], [b' '; 10]);
+    }
+
+    #[test]
+    fn test_set_code_too_long() {
+        let mut ssid = Ssid::default();
+        assert!(matches!(
+            ssid.set_code("O01234567890123456789012345"),
+            Err(SsidFieldError::CodeTooLong)
+        ));
     }
 
     #[test]

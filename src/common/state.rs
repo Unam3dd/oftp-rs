@@ -1,5 +1,8 @@
-/// États du mode commande ODETTE-FTP (demi-duplex), RFC 5024 §9.3.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+//! États du mode commande ODETTE-FTP (demi-duplex), RFC 5024 §9.3.
+//!
+//! Référence normative — la machine applicative du handshake vit dans
+//! [`crate::session::handshake`], pas ici.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum State {
     /// Répondeur : connexion réseau ouverte ; SSRM envoyé, en attente du SSID (`A_NC_ONLY`).
     ANcOnly,
@@ -14,12 +17,13 @@ pub enum State {
     /// Requête `F_EERP_RQ` reçue avant le CD protocolaire (`ERSTWFCD`).
     ErstWfcd,
     /// Connexion inactive (`IDLE`).
+    #[default]
     Idle,
     /// Auditeur inactif (`IDLELI`).
     IdleLi,
     /// Auditeur inactif après `F_CD_RQ` ; ESID valide (`IDLELICD`).
     IdleLiCd,
-    /// Émetteur inactif (`IDLESP`).
+    /// Émetteur inactif (`IDLESP`) — session **établie**, aucun transfert en cours.
     IdleSp,
     /// Émetteur inactif après `F_CD_IND` (`IDLESPCD`).
     IdleSpCd,
@@ -59,7 +63,54 @@ pub enum State {
     WfAurp,
 }
 
+/// Phase lisible pour l'application (complète l'état RFC détaillé).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SessionPhase {
+    /// Pas de session (TCP fermé).
+    Disconnected,
+    /// Connexion / négociation SSRM–SSID en cours.
+    Handshaking,
+    /// Session OFTP ouverte, prête pour SFID / DATA / etc.
+    Established,
+    /// Fermeture en cours.
+    Closing,
+}
+
+impl SessionPhase {
+    pub const fn label_fr(self) -> &'static str {
+        match self {
+            Self::Disconnected => "déconnecté",
+            Self::Handshaking => "handshake en cours",
+            Self::Established => "session établie",
+            Self::Closing => "fermeture en cours",
+        }
+    }
+}
+
+impl core::fmt::Display for SessionPhase {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(self.label_fr())
+    }
+}
+
 impl State {
+    /// Regroupe l'état RFC en une phase pour le client / les logs.
+    pub const fn phase(self) -> SessionPhase {
+        match self {
+            Self::Idle => SessionPhase::Disconnected,
+            Self::WfNdisc => SessionPhase::Closing,
+            Self::IWfNc | Self::IWfRm | Self::IWfSsid | Self::ANcOnly | Self::AWfConrs => {
+                SessionPhase::Handshaking
+            }
+            _ => SessionPhase::Established,
+        }
+    }
+
+    /// Session OFTP négociée (après échange SSID, avant ESID / fermeture).
+    pub const fn is_session_established(self) -> bool {
+        matches!(self.phase(), SessionPhase::Established)
+    }
+
     /// Nom de l'état tel que défini dans la RFC 5024.
     pub const fn as_rfc_str(self) -> &'static str {
         match self {
@@ -98,5 +149,23 @@ impl State {
 impl core::fmt::Display for State {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.as_rfc_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn idlesp_is_established_not_disconnected() {
+        assert_eq!(State::IdleSp.phase(), SessionPhase::Established);
+        assert!(State::IdleSp.is_session_established());
+        assert_ne!(State::IdleSp.phase(), SessionPhase::Disconnected);
+    }
+
+    #[test]
+    fn handshake_states() {
+        assert_eq!(State::IWfRm.phase(), SessionPhase::Handshaking);
+        assert_eq!(State::IWfSsid.phase(), SessionPhase::Handshaking);
     }
 }

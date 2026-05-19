@@ -1,4 +1,8 @@
-//! Événements ODETTE-FTP pour les tables d'états, RFC 5024 §9.4–9.5.
+//! Événements ODETTE-FTP formels pour les tables d'états RFC, §9.4–9.5.
+//!
+//! Le handshake SSRM/SSID utilise [`InputEvent`] / [`OutputEvent`] via
+//! [`crate::session::handshake`]. Les autres événements serviront pour les
+//! tables complètes (F_CONNECT_RQ, N_CON_CF, …).
 
 /// Événements d'entrée, RFC 5024 §9.4.
 ///

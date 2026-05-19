@@ -1,35 +1,100 @@
 use clap::Parser;
-use oftp_rs::stream::StreamTransmissionHeader;
-use std::net::{Shutdown, TcpStream};
-
+use oftp_rs::{ConnectOptions, OftpSession, SsidFieldError};
 
 #[derive(Parser)]
+#[command(about = "Client OFTP2 (handshake initiateur)")]
 struct Args {
+    /// Adresse du serveur (ex. 127.0.0.1:3305).
     target: String,
+
+    /// Code identifiant ODETTE (SSIDCODE, 25 caractères max).
+    #[arg(long, value_name = "CODE", default_value = "O01779122072341")]
+    ssid_code: String,
+
+    /// Mot de passe ODETTE (SSIDPSWD, 8 caractères max).
+    #[arg(long, value_name = "PASSWORD")]
+    password: Option<String>,
 }
 
-fn main() {
-    let args = Args::parse();
-    let mut sth = StreamTransmissionHeader {
-        version: 0, flags: 0, length: 0
-    };
+fn build_options(args: &Args) -> Result<ConnectOptions, SsidFieldError> {
+    let mut options = ConnectOptions::default().with_ssid_code(&args.ssid_code)?;
+    if let Some(password) = &args.password {
+        options = options.with_password(password)?;
+    }
+    Ok(options)
+}
 
-    let mut stream = match TcpStream::connect(&args.target) {
-        Ok(stream) => {
-            println!("Connecté à {}", args.target);
-            stream
-        }
-        Err(e) => {
-            eprintln!("Connexion à {} impossible : {}", args.target, e);
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "oftp_rs=debug,info".into()),
+        )
+        .init();
+
+    let args = Args::parse();
+
+    let options = match build_options(&args) {
+        Ok(options) => options,
+        Err(err) => {
+            eprintln!("Configuration SSID : {err}");
             std::process::exit(1);
         }
     };
 
-    sth.decode(&mut stream).unwrap();
+    let mut session = OftpSession::new(options);
 
-    println!("version: {} | flags: {} | length: {}", sth.version, sth.flags, sth.length);
+    if let Err(err) = session.connect(&args.target).await {
+        eprintln!("Connexion à {} impossible : {err}", args.target);
+        std::process::exit(1);
+    }
 
-    stream.shutdown(Shutdown::Both).expect("shutdown");
+    println!(
+        "TCP connecté à {} — {} (état RFC: {})",
+        args.target,
+        session.phase(),
+        session.state()
+    );
+    println!("SSIDCODE local : {}", args.ssid_code);
 
-    println!("Déconnecté de {}", args.target);
+    if let Some(stream) = session.stream() {
+        match stream.peer_addr() {
+            Ok(addr) => println!("Pair : {addr}"),
+            Err(err) => eprintln!("peer_addr : {err}"),
+        }
+    }
+
+    match session.run_handshake().await {
+        Ok(()) if session.is_established() => {
+            println!(
+                "Handshake OK — {} (état RFC: {}, prêt pour transfert fichier)",
+                session.phase(),
+                session.state()
+            );
+        }
+        Ok(()) => {
+            eprintln!(
+                "Handshake terminé mais état inattendu : {} ({})",
+                session.state(),
+                session.phase()
+            );
+            std::process::exit(1);
+        }
+        Err(err) => {
+            eprintln!("Handshake : {err}");
+            std::process::exit(1);
+        }
+    }
+
+    if let Err(err) = session.close().await {
+        eprintln!("Fermeture : {err}");
+    }
+
+    println!(
+        "Déconnecté de {} — {} (état RFC: {})",
+        args.target,
+        session.phase(),
+        session.state()
+    );
 }
