@@ -30,6 +30,11 @@ impl Default for ConnectOptions {
 }
 
 impl ConnectOptions {
+    pub fn with_role(mut self, role: Role) -> Self {
+        self.role = role;
+        self
+    }
+
     /// Code identifiant OFTP (SSIDCODE) pour la session.
     pub fn with_ssid_code(mut self, code: &str) -> Result<Self, SsidFieldError> {
         self.local_ssid.set_code(code)?;

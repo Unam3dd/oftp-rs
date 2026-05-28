@@ -1,19 +1,24 @@
-//! Session OFTP : connexion TCP, lecture/écriture PDU, handshake.
+//! Session OFTP : connexion TCP, lecture/écriture PDU, handshake, transfert.
 //!
 //! Couches du crate :
 //! - [`crate::commands`] — format des paquets (SSID, SSRM, …)
 //! - [`crate::stream`] — STH + I/O TCP
 //! - [`crate::state`] / [`crate::event`] — référence RFC (états / événements formels)
 //! - [`handshake`] — machine applicative (SSRM → SSID)
+//! - [`transfer`] — SFID → DATA → EFID
 //! - [`OftpSession`] — orchestration
 
 mod config;
 mod error;
 mod handshake;
+#[cfg(test)]
+mod integration_tests;
+mod transfer;
 
 pub use config::{ConnectOptions, Role};
 pub use error::SessionError;
-pub use handshake::{input_event_from_pdu, transition, ProtocolError};
+pub use handshake::{transition, ProtocolError};
+pub use transfer::TransferError;
 
 use std::io;
 
@@ -21,7 +26,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tracing::info;
 
-use crate::commands::OftpExchangeBuffer;
+use crate::commands::{OftpExchangeBuffer, Ssid};
 use crate::state::{SessionPhase, State};
 use crate::stream::{
     PduReadError, PduWriteError, StreamTransmission, StreamTransmissionHeader,
@@ -30,10 +35,12 @@ use crate::stream::{
 /// Point d'entrée : une session TCP + état protocole + options locales.
 #[derive(Debug)]
 pub struct OftpSession {
-    options: ConnectOptions,
+    pub(super) options: ConnectOptions,
     transport: StreamTransmission,
-    state: State,
+    pub(super) state: State,
     stream: Option<TcpStream>,
+    /// SSID reçu du pair après handshake.
+    pub(super) peer_ssid: Option<Ssid>,
 }
 
 impl OftpSession {
@@ -43,6 +50,7 @@ impl OftpSession {
             transport: StreamTransmission::default(),
             state: State::Idle,
             stream: None,
+            peer_ssid: None,
         }
     }
 
@@ -50,18 +58,20 @@ impl OftpSession {
         self.state
     }
 
-    /// Phase courante (déconnecté, handshake, session établie, …).
     pub fn phase(&self) -> SessionPhase {
         self.state.phase()
     }
 
-    /// `true` après handshake réussi (`IDLESP` côté initiateur, etc.).
     pub fn is_established(&self) -> bool {
         self.state.is_session_established()
     }
 
     pub fn options(&self) -> &ConnectOptions {
         &self.options
+    }
+
+    pub fn peer_ssid(&self) -> Option<&Ssid> {
+        self.peer_ssid.as_ref()
     }
 
     pub async fn connect(&mut self, target: &str) -> Result<(), SessionError> {
@@ -72,6 +82,13 @@ impl OftpSession {
             Role::Responder => State::ANcOnly,
         };
         Ok(())
+    }
+
+    /// Attache un socket TCP déjà accepté (serveur).
+    pub fn accept(&mut self, stream: TcpStream) {
+        info!(role = ?self.options.role, "session TCP acceptée");
+        self.stream = Some(stream);
+        self.state = State::ANcOnly;
     }
 
     pub fn stream(&self) -> Option<&TcpStream> {
@@ -99,11 +116,10 @@ impl OftpSession {
         self.transport.write_pdu(stream, pdu).await
     }
 
-    /// Handshake selon le rôle configuré dans [`ConnectOptions`].
     pub async fn run_handshake(&mut self) -> Result<(), SessionError> {
         match self.options.role {
             Role::Initiator => self.run_initiator_handshake().await,
-            Role::Responder => Err(SessionError::UnsupportedRole(Role::Responder)),
+            Role::Responder => self.run_responder_handshake().await,
         }
     }
 
@@ -115,6 +131,7 @@ impl OftpSession {
         }
 
         self.state = State::Idle;
+        self.peer_ssid = None;
         Ok(())
     }
 }

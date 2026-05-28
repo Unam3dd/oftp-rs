@@ -3,12 +3,12 @@
 //! ```text
 //! oftp-client / oftp-server (binaires)
 //!        ↓
-//!   session::OftpSession     ← orchestration (TCP + handshake)
+//!   session::OftpSession     ← orchestration (TCP + handshake + transfert)
 //!        ↓
 //!   stream                   ← STH + read/write PDU
-//!   handshake / state        ← machine applicative + états RFC
-//!   commands                 ← SSRM, SSID, … (encode/decode)
-//!   event                    ← InputEvent / OutputEvent RFC (handshake SSRM/SSID)
+//!   handshake / transfer       ← machines applicatives
+//!   commands                 ← SSRM, SSID, SFID, DATA, … (encode/decode)
+//!   event                    ← InputEvent / OutputEvent RFC
 //! ```
 
 pub mod commands;
@@ -20,6 +20,5 @@ pub mod stream;
 pub mod version;
 pub mod macros;
 
-pub use commands::{Sfid, SfidFieldError, SsidFieldError};
-pub use session::{ConnectOptions, OftpSession, Role, SessionError};
-pub use state::{SessionPhase, State};
+pub use commands::{Sfid, SfidFieldError, Ssid, SsidFieldError};
+pub use session::{ConnectOptions, OftpSession, Role, SessionError, TransferError};

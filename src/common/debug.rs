@@ -20,6 +20,18 @@ pub fn command_label(cmd: u8) -> &'static str {
         b'X' => "SSID",
         b'F' => "ESID",
         b'H' => "SFID",
+        b'2' => "SFPA",
+        b'3' => "SFNA",
+        b'D' => "DATA",
+        b'C' => "CDT",
+        b'T' => "EFID",
+        b'4' => "EFPA",
+        b'5' => "EFNA",
+        b'R' => "CD",
+        b'E' => "EERP",
+        b'N' => "NERP",
+        b'P' => "RTR",
+        b'J' => "SECD",
         _ => "inconnu",
     }
 }

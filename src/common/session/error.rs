@@ -4,6 +4,7 @@ use crate::state::State;
 use crate::stream::{PduReadError, PduWriteError};
 
 use super::handshake::ProtocolError;
+use super::transfer::TransferError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
@@ -18,6 +19,9 @@ pub enum SessionError {
 
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
+
+    #[error(transparent)]
+    Transfer(#[from] TransferError),
 
     #[error("rôle {0:?} non pris en charge pour le handshake")]
     UnsupportedRole(super::config::Role),

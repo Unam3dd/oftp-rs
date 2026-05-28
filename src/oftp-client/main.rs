@@ -1,14 +1,20 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use oftp_rs::{ConnectOptions, OftpSession, SsidFieldError};
 
 #[derive(Parser)]
-#[command(about = "Client OFTP2 (handshake initiateur)")]
+#[command(about = "Client OFTP2 (handshake initiateur + envoi fichier)")]
 struct Args {
     /// Adresse du serveur (ex. 127.0.0.1:3305).
     target: String,
 
+    /// Fichier local à envoyer après le handshake.
+    #[arg(long, value_name = "PATH")]
+    file: Option<PathBuf>,
+
     /// Code identifiant ODETTE (SSIDCODE, 25 caractères max).
-    #[arg(long, value_name = "CODE", default_value = "O01779122072341")]
+    #[arg(long, value_name = "CODE", default_value = "ODSTALES")]
     ssid_code: String,
 
     /// Mot de passe ODETTE (SSIDPSWD, 8 caractères max).
@@ -56,22 +62,21 @@ async fn main() {
         session.phase(),
         session.state()
     );
-    println!("SSIDCODE local : {}", args.ssid_code);
-
-    if let Some(stream) = session.stream() {
-        match stream.peer_addr() {
-            Ok(addr) => println!("Pair : {addr}"),
-            Err(err) => eprintln!("peer_addr : {err}"),
-        }
-    }
 
     match session.run_handshake().await {
         Ok(()) if session.is_established() => {
             println!(
-                "Handshake OK — {} (état RFC: {}, prêt pour transfert fichier)",
+                "Handshake OK — {} (état RFC: {})",
                 session.phase(),
                 session.state()
             );
+            if args.file.is_some() {
+                println!(
+                    "Avant l'envoi : lancer oftp-server sur le port de rappel, ex.\n  \
+                     cargo run --bin oftp-server -- --listen 0.0.0.0:3306 --ssid-code \"{}\"",
+                    args.ssid_code
+                );
+            }
         }
         Ok(()) => {
             eprintln!(
@@ -87,8 +92,41 @@ async fn main() {
         }
     }
 
-    if let Err(err) = session.close().await {
-        eprintln!("Fermeture : {err}");
+    if let Some(path) = &args.file {
+        let meta = std::fs::metadata(path);
+        match meta {
+            Ok(m) => println!(
+                "Fichier local : {} ({} octets sur disque)",
+                path.display(),
+                m.len()
+            ),
+            Err(err) => {
+                eprintln!("Fichier introuvable {} : {err}", path.display());
+                std::process::exit(1);
+            }
+        }
+
+        match session.run_send_file(path).await {
+            Ok(bytes) => {
+                println!(
+                    "Fichier envoyé sur le fil OFTP : {} ({} octets DATA)",
+                    path.display(),
+                    bytes
+                );
+                if bytes == 0 {
+                    eprintln!("Attention : 0 octet DATA — mendelson affichera aussi 0 octet reçu");
+                }
+            }
+            Err(err) => {
+                eprintln!("Envoi fichier : {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if let Err(err) = session.end_session().await {
+        eprintln!("Fin de session : {err}");
+        std::process::exit(1);
     }
 
     println!(
