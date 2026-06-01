@@ -1,0 +1,13 @@
+{
+  "_comment": "Copier le tableau colorGroups dans .obsidian/graph.json si Obsidian l'a vidé",
+  "colorGroups": [
+    { "query": "tag:groupe/commandes", "color": { "a": 1, "rgb": 3901650 } },
+    { "query": "tag:groupe/etats", "color": { "a": 1, "rgb": 16359446 } },
+    { "query": "tag:groupe/cas-speciaux", "color": { "a": 1, "rgb": 2278750 } },
+    { "query": "tag:groupe/rust", "color": { "a": 1, "rgb": 11032055 } },
+    { "query": "tag:groupe/index", "color": { "a": 1, "rgb": 15385576 } },
+    { "query": "tag:groupe/chapitre", "color": { "a": 1, "rgb": 443747 } },
+    { "query": "tag:groupe/sources", "color": { "a": 1, "rgb": 7039855 } },
+    { "query": "tag:groupe/template", "color": { "a": 1, "rgb": 13421772 } }
+  ]
+}

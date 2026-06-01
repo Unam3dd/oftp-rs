@@ -1,0 +1,266 @@
+{
+  "nodes": [
+    {
+      "id": "grp_pdu",
+      "type": "group",
+      "x": 0,
+      "y": 0,
+      "width": 1400,
+      "height": 1100,
+      "label": "Commandes PDU (\u00a75)",
+      "color": "4"
+    },
+    {
+      "id": "e1a861326c99195e",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SSRM.md",
+      "x": 40,
+      "y": 60,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "c2c8756a8d36d109",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SSID.md",
+      "x": 320,
+      "y": 60,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "afcf017f4547d306",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SECD.md",
+      "x": 600,
+      "y": 60,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "babc20b8f8298bc1",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/AUCH.md",
+      "x": 880,
+      "y": 60,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "d0bf959f24e04dcd",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/AURP.md",
+      "x": 1160,
+      "y": 60,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "b00aae92f8ecc4ad",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SFID.md",
+      "x": 40,
+      "y": 220,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "33c915ba51b68e30",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SFPA.md",
+      "x": 320,
+      "y": 220,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "5a1a253d2b58e64d",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/SFNA.md",
+      "x": 600,
+      "y": 220,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "9d99bd2b6cafc6b2",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/DATA.md",
+      "x": 40,
+      "y": 380,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "217c2f9ac1eafe0f",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/CDT.md",
+      "x": 320,
+      "y": 380,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "4f43cdd2267945b2",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/EFID.md",
+      "x": 40,
+      "y": 540,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "40fb12d274f341d4",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/EFPA.md",
+      "x": 320,
+      "y": 540,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "6c48a40bc11ae222",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/EFNA.md",
+      "x": 600,
+      "y": 540,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "8fab6f0c103e58aa",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/CD.md",
+      "x": 880,
+      "y": 380,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "1ed4a3ec418ddbe1",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/EERP.md",
+      "x": 880,
+      "y": 540,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "ff579867684fcf73",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/NERP.md",
+      "x": 1160,
+      "y": 540,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "3ee156648be06353",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/RTR.md",
+      "x": 1160,
+      "y": 700,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "0975997798e32694",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/ESID.md",
+      "x": 600,
+      "y": 700,
+      "width": 240,
+      "height": 70,
+      "color": "4"
+    },
+    {
+      "id": "79e4d6e0a524c0f2",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/_MOC Commandes PDU.md",
+      "x": 40,
+      "y": 900,
+      "width": 400,
+      "height": 80,
+      "color": "4"
+    },
+    {
+      "id": "fe7ea4d1d620df09",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/00-identifiants-pdu.md",
+      "x": 500,
+      "y": 900,
+      "width": 400,
+      "height": 80,
+      "color": "4"
+    }
+  ],
+  "edges": [
+    {
+      "id": "374a584bc55f1acd",
+      "fromNode": "e1a861326c99195e",
+      "toNode": "c2c8756a8d36d109"
+    },
+    {
+      "id": "d6d33df8ee6c9781",
+      "fromNode": "c2c8756a8d36d109",
+      "toNode": "b00aae92f8ecc4ad"
+    },
+    {
+      "id": "01ebfd8f3832157a",
+      "fromNode": "b00aae92f8ecc4ad",
+      "toNode": "33c915ba51b68e30"
+    },
+    {
+      "id": "d30aaee433cc6c5a",
+      "fromNode": "33c915ba51b68e30",
+      "toNode": "9d99bd2b6cafc6b2"
+    },
+    {
+      "id": "2f0146147cc4d909",
+      "fromNode": "9d99bd2b6cafc6b2",
+      "toNode": "217c2f9ac1eafe0f"
+    },
+    {
+      "id": "1b53242d9a2a5a2f",
+      "fromNode": "9d99bd2b6cafc6b2",
+      "toNode": "4f43cdd2267945b2"
+    },
+    {
+      "id": "df22828d849203d9",
+      "fromNode": "4f43cdd2267945b2",
+      "toNode": "40fb12d274f341d4"
+    },
+    {
+      "id": "fb65ce0fa4cb8322",
+      "fromNode": "40fb12d274f341d4",
+      "toNode": "8fab6f0c103e58aa"
+    },
+    {
+      "id": "42a3d717a062c152",
+      "fromNode": "4f43cdd2267945b2",
+      "toNode": "1ed4a3ec418ddbe1"
+    },
+    {
+      "id": "6c5abc212f57e554",
+      "fromNode": "1ed4a3ec418ddbe1",
+      "toNode": "3ee156648be06353"
+    }
+  ]
+}

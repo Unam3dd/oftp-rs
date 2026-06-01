@@ -1,0 +1,20 @@
+{
+	"nodes":[
+		{"id":"grp_et","type":"group","x":0,"y":0,"width":1200,"height":900,"color":"2","label":"Tables §9"},
+		{"id":"a84c9102fe233798","type":"file","file":"01-rfc5024/09-tables/00-vue-ensemble.md","x":40,"y":60,"width":340,"height":100,"color":"2"},
+		{"id":"90f0c85a9d88225e","type":"file","file":"01-rfc5024/09-tables/9.8-session-connection.md","x":40,"y":200,"width":340,"height":100,"color":"2"},
+		{"id":"94c7234979a7791f","type":"file","file":"01-rfc5024/09-tables/9.9-error-abort.md","x":40,"y":340,"width":340,"height":100,"color":"2"},
+		{"id":"400d66bf6d00b517","type":"file","file":"01-rfc5024/09-tables/9.10-speaker-1.md","x":420,"y":200,"width":340,"height":100,"color":"2"},
+		{"id":"7d02491727afdc17","type":"file","file":"01-rfc5024/09-tables/9.11-speaker-2.md","x":420,"y":340,"width":340,"height":100,"color":"2"},
+		{"id":"bc1a30b8b9dc6e7c","type":"file","file":"01-rfc5024/09-tables/9.12-listener.md","x":420,"y":480,"width":340,"height":100,"color":"2"},
+		{"id":"26e2f81f1e918fd3","type":"file","file":"01-rfc5024/09-tables/_MOC Tables états.md","x":40,"y":620,"width":400,"height":80,"color":"2"},
+		{"id":"57091ded5c57df11","type":"file","file":"01-rfc5024/09-tables-etats.md","x":500,"y":620,"width":400,"height":80,"color":"2"}
+	],
+	"edges":[
+		{"id":"0628d178b8b1deef","fromNode":"a84c9102fe233798","fromSide":"bottom","toNode":"90f0c85a9d88225e","toSide":"top"},
+		{"id":"6e5c06522172318b","fromNode":"90f0c85a9d88225e","fromSide":"right","toNode":"400d66bf6d00b517","toSide":"left"},
+		{"id":"658f457aa5912a12","fromNode":"400d66bf6d00b517","fromSide":"bottom","toNode":"7d02491727afdc17","toSide":"top"},
+		{"id":"000d68f1b5a2d333","fromNode":"90f0c85a9d88225e","fromSide":"bottom","toNode":"bc1a30b8b9dc6e7c","toSide":"top"},
+		{"id":"f30b602cff0eab12","fromNode":"a84c9102fe233798","fromSide":"bottom","toNode":"94c7234979a7791f","toSide":"top"}
+	]
+}

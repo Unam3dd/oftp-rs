@@ -1,0 +1,15 @@
+{
+  "_comment": "Source de vérité — ne pas éditer graph.json à la main pour les couleurs",
+  "colorGroups": [
+    { "query": "path:Cartes", "color": { "a": 1, "rgb": 12566463 } },
+    { "query": "path:01-rfc5024/05-commandes", "color": { "a": 1, "rgb": 3901650 } },
+    { "query": "path:01-rfc5024/09-tables", "color": { "a": 1, "rgb": 16359446 } },
+    { "query": "path:02-cas-speciaux", "color": { "a": 1, "rgb": 2278750 } },
+    { "query": "path:03-rust", "color": { "a": 1, "rgb": 11032055 } },
+    { "query": "path:00-index", "color": { "a": 1, "rgb": 15385576 } },
+    { "query": "path:RFCs", "color": { "a": 1, "rgb": 7039855 } },
+    { "query": "path:Templates", "color": { "a": 1, "rgb": 13421772 } },
+    { "query": "file:Bienvenue", "color": { "a": 1, "rgb": 15385576 } },
+    { "query": "path:01-rfc5024", "color": { "a": 1, "rgb": 443747 } }
+  ]
+}

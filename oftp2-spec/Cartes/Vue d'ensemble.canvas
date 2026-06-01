@@ -1,0 +1,180 @@
+{
+  "nodes": [
+    {
+      "id": "g_index",
+      "type": "group",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 200,
+      "label": "Index & navigation",
+      "color": "1"
+    },
+    {
+      "id": "8e64f35d4ddcfe83",
+      "type": "file",
+      "file": "00-index/_MOC Index.md",
+      "x": 40,
+      "y": 50,
+      "width": 300,
+      "height": 100,
+      "color": "1"
+    },
+    {
+      "id": "g_cmd",
+      "type": "group",
+      "x": 900,
+      "y": 0,
+      "width": 380,
+      "height": 200,
+      "label": "Commandes PDU",
+      "color": "4"
+    },
+    {
+      "id": "79e4d6e0a524c0f2",
+      "type": "file",
+      "file": "01-rfc5024/05-commandes/_MOC Commandes PDU.md",
+      "x": 940,
+      "y": 50,
+      "width": 300,
+      "height": 100,
+      "color": "4"
+    },
+    {
+      "id": "g_tbl",
+      "type": "group",
+      "x": 450,
+      "y": 400,
+      "width": 380,
+      "height": 200,
+      "label": "Tables d'\u00e9tats \u00a79",
+      "color": "2"
+    },
+    {
+      "id": "26e2f81f1e918fd3",
+      "type": "file",
+      "file": "01-rfc5024/09-tables/_MOC Tables \u00e9tats.md",
+      "x": 490,
+      "y": 450,
+      "width": 300,
+      "height": 100,
+      "color": "2"
+    },
+    {
+      "id": "g_ch",
+      "type": "group",
+      "x": 0,
+      "y": 400,
+      "width": 380,
+      "height": 200,
+      "label": "Chapitres RFC",
+      "color": "5"
+    },
+    {
+      "id": "9a208f81ff398bee",
+      "type": "file",
+      "file": "01-rfc5024/_MOC Chapitres RFC.md",
+      "x": 40,
+      "y": 450,
+      "width": 300,
+      "height": 100,
+      "color": "5"
+    },
+    {
+      "id": "g_cs",
+      "type": "group",
+      "x": 900,
+      "y": 400,
+      "width": 380,
+      "height": 200,
+      "label": "Cas sp\u00e9ciaux",
+      "color": "3"
+    },
+    {
+      "id": "0bdd8cae1d5320a6",
+      "type": "file",
+      "file": "02-cas-speciaux/_MOC Cas sp\u00e9ciaux.md",
+      "x": 940,
+      "y": 450,
+      "width": 300,
+      "height": 100,
+      "color": "3"
+    },
+    {
+      "id": "g_rs",
+      "type": "group",
+      "x": 450,
+      "y": 800,
+      "width": 380,
+      "height": 200,
+      "label": "Rust",
+      "color": "6"
+    },
+    {
+      "id": "3b7da886a670a5cb",
+      "type": "file",
+      "file": "03-rust/_MOC Rust.md",
+      "x": 490,
+      "y": 850,
+      "width": 300,
+      "height": 100,
+      "color": "6"
+    },
+    {
+      "id": "65245a0f5b30c091",
+      "type": "file",
+      "file": "Bienvenue.md",
+      "x": 450,
+      "y": -220,
+      "width": 320,
+      "height": 80,
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "fbeb9698bc9899bf",
+      "fromNode": "8e64f35d4ddcfe83",
+      "toNode": "0bdd8cae1d5320a6"
+    },
+    {
+      "id": "18a7c525b6b3d304",
+      "fromNode": "8e64f35d4ddcfe83",
+      "toNode": "9a208f81ff398bee"
+    },
+    {
+      "id": "8824abad3c201c67",
+      "fromNode": "9a208f81ff398bee",
+      "toNode": "79e4d6e0a524c0f2",
+      "label": "\u00a75 PDU"
+    },
+    {
+      "id": "ea9fa1c163979f5b",
+      "fromNode": "9a208f81ff398bee",
+      "toNode": "26e2f81f1e918fd3",
+      "label": "\u00a79 FSM"
+    },
+    {
+      "id": "7fd51b64a7950940",
+      "fromNode": "79e4d6e0a524c0f2",
+      "toNode": "26e2f81f1e918fd3",
+      "label": "transitions"
+    },
+    {
+      "id": "c5d5d1ebacba5333",
+      "fromNode": "26e2f81f1e918fd3",
+      "toNode": "3b7da886a670a5cb",
+      "label": "impl"
+    },
+    {
+      "id": "c673d1463c734ecd",
+      "fromNode": "0bdd8cae1d5320a6",
+      "toNode": "26e2f81f1e918fd3"
+    },
+    {
+      "id": "d795ae316a871cd5",
+      "fromNode": "65245a0f5b30c091",
+      "toNode": "8e64f35d4ddcfe83"
+    }
+  ]
+}
