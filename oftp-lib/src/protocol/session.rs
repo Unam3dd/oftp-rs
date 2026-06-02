@@ -1,5 +1,7 @@
 //! Session OFTP — contexte FSM §9.6 / §9.8 (sans I/O réseau).
 
+use crate::codec::oeb::OftpExchangeBuffer;
+use crate::codec::pdu::ssrm::Ssrm;
 use crate::codec::pdu::ssid::{Ssid, SsidFieldError};
 
 use super::error::ProtocolError;
@@ -114,18 +116,139 @@ impl Session {
         }
     }
 
-    /// Consomme un événement et retourne le résultat sans I/O.
+    /// Transition **B** — Responder : `N_CON_IND` → SSRM → `RespNcOnly`.
+    pub fn accept_connection(&mut self) -> Result<TransitionOutput, ProtocolError> {
+        if self.role != SessionRole::Responder {
+            return Err(ProtocolError::InvalidTransition {
+                state: self.state,
+                event: "N_CON_IND",
+            });
+        }
+        if self.state != ProtocolState::Idle {
+            return Err(ProtocolError::InvalidTransition {
+                state: self.state,
+                event: "N_CON_IND",
+            });
+        }
+
+        let next = ProtocolState::RespNcOnly;
+        self.state = next;
+        Ok(TransitionOutput {
+            next,
+            to_peer: Some(OftpExchangeBuffer::Ssrm(Ssrm { cr: 0x0D })),
+        })
+    }
+
+    /// Consomme un PDU pair et retourne le résultat sans I/O.
     pub fn transition(
         &mut self,
-        _input: TransitionInput,
+        input: TransitionInput,
     ) -> Result<TransitionOutput, ProtocolError> {
-        Err(ProtocolError::NotImplemented)
+        let TransitionInput::Peer(oeb) = input;
+
+        match (self.role, self.state, oeb) {
+            // **H** — Initiator : SSRM reçu → SSID émis.
+            (
+                SessionRole::Initiator,
+                ProtocolState::InitWaitRm,
+                OftpExchangeBuffer::Ssrm(_),
+            ) => {
+                let next = ProtocolState::InitWaitSsid;
+                self.state = next;
+                Ok(TransitionOutput {
+                    next,
+                    to_peer: Some(OftpExchangeBuffer::Ssid(self.config.to_ssid())),
+                })
+            }
+
+            // **D** — Initiator : SSID pair reçu → session établie (Speaker).
+            (
+                SessionRole::Initiator,
+                ProtocolState::InitWaitSsid,
+                OftpExchangeBuffer::Ssid(peer),
+            ) => {
+                apply_peer_ssid(self, &peer);
+                let next = ProtocolState::IdleSp;
+                self.state = next;
+                Ok(TransitionOutput::state_only(next))
+            }
+
+            // **E+G** — Responder (auto_accept) : SSID Initiator → SSID émis → Listener.
+            (
+                SessionRole::Responder,
+                ProtocolState::RespNcOnly,
+                OftpExchangeBuffer::Ssid(peer),
+            ) if self.config.auto_accept => {
+                apply_peer_ssid(self, &peer);
+                let next = ProtocolState::IdleLi;
+                self.state = next;
+                Ok(TransitionOutput {
+                    next,
+                    to_peer: Some(OftpExchangeBuffer::Ssid(self.config.to_ssid())),
+                })
+            }
+
+            // **E** seule — Responder sans auto_accept : attend validation app.
+            (
+                SessionRole::Responder,
+                ProtocolState::RespNcOnly,
+                OftpExchangeBuffer::Ssid(peer),
+            ) => {
+                apply_peer_ssid(self, &peer);
+                let next = ProtocolState::RespWaitConRs;
+                self.state = next;
+                Ok(TransitionOutput::state_only(next))
+            }
+
+            (role, state, oeb) => Err(ProtocolError::InvalidTransition {
+                state,
+                event: invalid_peer_event(role, state, &oeb),
+            }),
+        }
+    }
+}
+
+/// Négociation minimale SSID (min buffer_size, min credit, flags AND).
+fn apply_peer_ssid(session: &mut Session, peer: &Ssid) {
+    let local = &session.config.local_ssid;
+
+    session.vars.peer_ssid = Some(peer.clone());
+    session.vars.buf_size = local.buffer_size.min(peer.buffer_size);
+    session.vars.window = local.credit.min(peer.credit);
+    session.vars.compression = local.compression && peer.compression;
+    session.vars.restart = local.restart && peer.restart;
+    session.vars.authentication = local.auth && peer.auth;
+    session.vars.credit_s = session.vars.window;
+    session.vars.credit_l = session.vars.window;
+}
+
+fn invalid_peer_event(
+    role: SessionRole,
+    state: ProtocolState,
+    oeb: &OftpExchangeBuffer,
+) -> &'static str {
+    match oeb {
+        OftpExchangeBuffer::Ssrm(_) => match (role, state) {
+            (SessionRole::Initiator, ProtocolState::InitWaitRm) => "SSRM",
+            _ => "SSRM(unexpected)",
+        },
+        OftpExchangeBuffer::Ssid(_) => match (role, state) {
+            (SessionRole::Initiator, ProtocolState::InitWaitSsid) => "SSID",
+            (SessionRole::Responder, ProtocolState::RespNcOnly) => "SSID",
+            _ => "SSID(unexpected)",
+        },
+        OftpExchangeBuffer::Esid(_) => "ESID",
+        OftpExchangeBuffer::None => "None",
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ssid_code(ssid: &Ssid) -> &str {
+        std::str::from_utf8(&ssid.code).unwrap().trim_end()
+    }
 
     #[test]
     fn initiator_starts_in_init_wait_rm() {
@@ -146,22 +269,111 @@ mod tests {
     #[test]
     fn config_with_code() {
         let config = SessionConfig::default().with_code("CLIENT01").unwrap();
-        let code = std::str::from_utf8(&config.local_ssid.code)
-            .unwrap()
-            .trim_end();
-        assert_eq!(code, "CLIENT01");
+        assert_eq!(ssid_code(&config.local_ssid), "CLIENT01");
     }
 
     #[test]
-    fn transition_not_implemented_yet() {
-        use crate::codec::oeb::OftpExchangeBuffer;
-        use crate::codec::pdu::ssrm::Ssrm;
+    fn transition_b_send_ssrm() {
+        let mut server = Session::responder(SessionConfig::default());
 
-        let mut session = Session::initiator(SessionConfig::default());
-        let input = TransitionInput::Peer(OftpExchangeBuffer::Ssrm(Ssrm { cr: 0x0D }));
-        assert_eq!(
-            session.transition(input).unwrap_err(),
-            ProtocolError::NotImplemented
-        );
+        let out = server.accept_connection().unwrap();
+
+        assert_eq!(server.state, ProtocolState::RespNcOnly);
+        assert_eq!(out.next, ProtocolState::RespNcOnly);
+        assert!(matches!(out.to_peer, Some(OftpExchangeBuffer::Ssrm(_))));
+    }
+
+    #[test]
+    fn accept_connection_rejects_initiator() {
+        let mut client = Session::initiator(SessionConfig::default());
+        assert!(matches!(
+            client.accept_connection().unwrap_err(),
+            ProtocolError::InvalidTransition {
+                state: ProtocolState::InitWaitRm,
+                event: "N_CON_IND",
+            }
+        ));
+    }
+
+    #[test]
+    fn handshake_fsm_ssrm_and_two_ssid() {
+        let server_config = SessionConfig::default().with_code("SERVER01").unwrap();
+        let client_config = SessionConfig::default().with_code("CLIENT01").unwrap();
+
+        let mut server = Session::responder(server_config);
+        let mut client = Session::initiator(client_config);
+
+        // B — serveur envoie SSRM
+        let out_b = server.accept_connection().unwrap();
+        let ssrm = out_b.to_peer.expect("SSRM");
+
+        // H — client envoie SSID
+        let out_h = client
+            .transition(TransitionInput::Peer(ssrm))
+            .expect("transition H");
+        assert_eq!(out_h.next, ProtocolState::InitWaitSsid);
+        let client_ssid = out_h.to_peer.expect("SSID client");
+
+        // E+G — serveur répond SSID
+        let out_g = server
+            .transition(TransitionInput::Peer(client_ssid))
+            .expect("transition E+G");
+        assert_eq!(server.state, ProtocolState::IdleLi);
+        assert_eq!(out_g.next, ProtocolState::IdleLi);
+        let server_ssid = out_g.to_peer.expect("SSID serveur");
+
+        // D — client reçoit SSID serveur
+        let out_d = client
+            .transition(TransitionInput::Peer(server_ssid))
+            .expect("transition D");
+        assert_eq!(client.state, ProtocolState::IdleSp);
+        assert_eq!(out_d.next, ProtocolState::IdleSp);
+        assert!(out_d.to_peer.is_none());
+
+        assert_eq!(ssid_code(server.vars.peer_ssid.as_ref().unwrap()), "CLIENT01");
+        assert_eq!(ssid_code(client.vars.peer_ssid.as_ref().unwrap()), "SERVER01");
+        assert_eq!(server.vars.window, 50);
+        assert_eq!(client.vars.buf_size, 2048);
+    }
+
+    #[test]
+    fn responder_without_auto_accept_waits_after_peer_ssid() {
+        let config = SessionConfig {
+            auto_accept: false,
+            ..SessionConfig::default().with_code("SERVER01").unwrap()
+        };
+        let mut server = Session::responder(config);
+        server.accept_connection().unwrap();
+
+        let mut client = Session::initiator(SessionConfig::default().with_code("CLIENT01").unwrap());
+        let ssrm = OftpExchangeBuffer::Ssrm(Ssrm { cr: 0x0D });
+        let client_ssid = client
+            .transition(TransitionInput::Peer(ssrm))
+            .unwrap()
+            .to_peer
+            .unwrap();
+
+        let out = server
+            .transition(TransitionInput::Peer(client_ssid))
+            .unwrap();
+
+        assert_eq!(server.state, ProtocolState::RespWaitConRs);
+        assert_eq!(out.next, ProtocolState::RespWaitConRs);
+        assert!(out.to_peer.is_none());
+    }
+
+    #[test]
+    fn invalid_transition_wrong_pdu() {
+        let mut client = Session::initiator(SessionConfig::default());
+        let err = client
+            .transition(TransitionInput::Peer(OftpExchangeBuffer::Ssid(Ssid::default())))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProtocolError::InvalidTransition {
+                state: ProtocolState::InitWaitRm,
+                ..
+            }
+        ));
     }
 }
