@@ -1,15 +1,21 @@
-use crate::pdu::ssrm::Ssrm;
-use crate::pdu::ssid::Ssid;
-use crate::pdu::ssrm::SsrmError;
-use crate::pdu::ssid::SsidError;
-use crate::pdu::ssrm::SSRMCMD;
-use crate::pdu::ssid::SSIDCMD;
+use super::pdu::ssrm::Ssrm;
+use super::pdu::ssid::Ssid;
+use super::pdu::esid::Esid;
 
-#[derive(Debug, Clone)]
+use super::pdu::ssrm::SsrmError;
+use super::pdu::ssid::SsidError;
+use super::pdu::esid::EsidError;
+
+use super::pdu::ssrm::SSRMCMD;
+use super::pdu::ssid::SSIDCMD;
+use super::pdu::esid::ESIDCMD;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OftpExchangeBuffer {
     None,
     Ssrm(Ssrm),
     Ssid(Ssid),
+    Esid(Esid),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -18,6 +24,8 @@ pub enum OftpExchangeBufferError {
     Ssrm(#[from] SsrmError),
     #[error("SSID error: {0}")]
     Ssid(#[from] SsidError),
+    #[error("ESID error: {0}")]
+    Esid(#[from] EsidError),
     #[error("failed to decode OEB: Empty buffer !")]
     EmptyBufferError,
     #[error("failed to decode OEB: Invalid command !")]
@@ -37,6 +45,7 @@ impl OftpExchangeBuffer {
             Self::None => Ok(Vec::new()),
             Self::Ssrm(ssrm) => Ok(ssrm.encode()?),
             Self::Ssid(ssid) => Ok(ssid.encode()?),
+            Self::Esid(esid) => Ok(esid.encode()?),
         }
     }
 
@@ -47,16 +56,25 @@ impl OftpExchangeBuffer {
         }
 
         match buf[0] {
+            
             SSRMCMD => {
                 let mut ssrm = Ssrm::default();
                 ssrm.decode(buf)?;
                 *self = Self::Ssrm(ssrm);
                 Ok(())
             }
+            
             SSIDCMD => {
                 let mut ssid = Ssid::default();
                 ssid.decode(buf)?;
                 *self = Self::Ssid(ssid);
+                Ok(())
+            }
+
+            ESIDCMD => {
+                let mut esid = Esid::default();
+                esid.decode(buf)?;
+                *self = Self::Esid(esid);
                 Ok(())
             }
             _ => Err(OftpExchangeBufferError::InvalidCommandError),
@@ -67,8 +85,9 @@ impl OftpExchangeBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pdu::ssrm::SSRM_LEN;
-    use crate::pdu::ssid::SSID_LEN;
+    use super::super::pdu::ssrm::SSRM_LEN;
+    use super::super::pdu::ssid::SSID_LEN;
+    use super::super::pdu::esid::{ESID_CR_ALT, ESID_MIN_WIRE_LEN, ESID_REASON_NORMAL};
 
     fn ssrm_wire() -> [u8; SSRM_LEN] {
         [
@@ -84,6 +103,12 @@ mod tests {
         Ssid::default()
             .encode()
             .expect("SSID sample encode")
+    }
+
+    fn esid_wire() -> Vec<u8> {
+        Esid::normal()
+            .encode()
+            .expect("ESID sample encode")
     }
 
     #[test]
@@ -374,8 +399,7 @@ mod tests {
         ));
     }
 
-    /// SSRM et SSID partagent la même première lettre en ASCII ? Non — mais `'I'`
-    /// ne doit jamais être traité comme SSID : buffer SSID valide sauf octet 0 → erreur SSRM.
+    /// `'I'` ne doit jamais être traité comme SSID : buffer SSID valide sauf octet 0 → erreur SSRM.
     #[test]
     fn ssid_wire_with_ssrm_command_byte_fails_at_ssrm_decode() {
         let mut wire = ssid_wire();
@@ -386,5 +410,164 @@ mod tests {
             err,
             OftpExchangeBufferError::Ssrm(SsrmError::InvalidSsrmSizeError)
         ));
+    }
+
+    #[test]
+    fn decode_esid_from_none() {
+        let mut oeb = OftpExchangeBuffer::None;
+        let wire = esid_wire();
+
+        oeb.decode(&wire).unwrap();
+
+        match oeb {
+            OftpExchangeBuffer::Esid(esid) => {
+                assert_eq!(esid.reason, ESID_REASON_NORMAL);
+                assert!(esid.reason_text.is_empty());
+                assert_eq!(esid.cr, 0x0D);
+            }
+            other => panic!("expected Esid, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn encode_esid() {
+        let mut oeb = OftpExchangeBuffer::Esid(Esid::normal());
+        let buf = oeb.encode().unwrap();
+
+        assert_eq!(buf.len(), ESID_MIN_WIRE_LEN);
+        assert_eq!(buf[0], ESIDCMD);
+        assert_eq!(buf.as_slice(), esid_wire().as_slice());
+    }
+
+    #[test]
+    fn roundtrip_esid_decode_encode_decode() {
+        let wire = esid_wire();
+        let mut oeb = OftpExchangeBuffer::None;
+
+        oeb.decode(&wire).unwrap();
+        let encoded = oeb.encode().unwrap();
+        assert_eq!(encoded, wire);
+
+        let mut oeb2 = OftpExchangeBuffer::None;
+        oeb2.decode(&encoded).unwrap();
+        assert!(matches!(oeb2, OftpExchangeBuffer::Esid(_)));
+    }
+
+    #[test]
+    fn decode_esid_wrong_length_leaves_none() {
+        let mut oeb = OftpExchangeBuffer::None;
+        let err = oeb.decode(&[ESIDCMD, b'0', b'0']).unwrap_err();
+        assert!(matches!(
+            err,
+            OftpExchangeBufferError::Esid(EsidError::InvalidSizeError)
+        ));
+        assert!(matches!(oeb, OftpExchangeBuffer::None));
+    }
+
+    #[test]
+    fn decode_esid_bad_cr_via_oeb() {
+        let mut wire = esid_wire();
+        *wire.last_mut().unwrap() = 0xAA;
+        let mut oeb = OftpExchangeBuffer::None;
+        let err = oeb.decode(&wire).unwrap_err();
+        assert!(matches!(
+            err,
+            OftpExchangeBufferError::Esid(EsidError::BadControlReturnError)
+        ));
+        assert!(matches!(oeb, OftpExchangeBuffer::None));
+    }
+
+    #[test]
+    fn decode_esid_length_mismatch_via_oeb() {
+        let mut wire = esid_wire();
+        wire.push(b'X');
+        let mut oeb = OftpExchangeBuffer::None;
+        let err = oeb.decode(&wire).unwrap_err();
+        assert!(matches!(
+            err,
+            OftpExchangeBufferError::Esid(EsidError::DescriptionLengthMismatch)
+        ));
+        assert!(matches!(oeb, OftpExchangeBuffer::None));
+    }
+
+    #[test]
+    fn encode_esid_text_too_long_propagates() {
+        use super::super::pdu::esid::ESID_TEXT_MAX;
+
+        let esid = Esid {
+            reason: ESID_REASON_NORMAL,
+            reason_text: vec![b'X'; ESID_TEXT_MAX + 1],
+            cr: 0x0D,
+        };
+        let mut oeb = OftpExchangeBuffer::Esid(esid);
+        let err = oeb.encode().unwrap_err();
+        assert!(matches!(
+            err,
+            OftpExchangeBufferError::Esid(EsidError::InvalidSizeError)
+        ));
+    }
+
+    #[test]
+    fn decode_esid_replaces_previous_variant() {
+        let mut oeb = OftpExchangeBuffer::Ssrm(Ssrm { cr: 0x0D });
+        oeb.decode(&esid_wire()).unwrap();
+        assert!(matches!(oeb, OftpExchangeBuffer::Esid(_)));
+    }
+
+    #[test]
+    fn failed_esid_decode_does_not_clobber_existing_ssid() {
+        let original = Ssid::default();
+        let mut oeb = OftpExchangeBuffer::Ssid(original.clone());
+
+        let mut bad = esid_wire();
+        *bad.last_mut().unwrap() = 0xAA;
+
+        let err = oeb.decode(&bad).unwrap_err();
+        assert!(matches!(
+            err,
+            OftpExchangeBufferError::Esid(EsidError::BadControlReturnError)
+        ));
+        match &oeb {
+            OftpExchangeBuffer::Ssid(s) => {
+                assert_eq!(s.buffer_size, original.buffer_size);
+                assert_eq!(s.code, original.code);
+                assert_eq!(s.cr, original.cr);
+            }
+            other => panic!("Ssid must survive failed ESID decode, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn roundtrip_esid_with_reason_text_via_oeb() {
+        let expected = Esid {
+            reason: 12,
+            reason_text: b"session closed".to_vec(),
+            cr: ESID_CR_ALT,
+        };
+        let wire = expected.encode().unwrap();
+
+        let mut oeb = OftpExchangeBuffer::None;
+        oeb.decode(&wire).unwrap();
+        let back = oeb.encode().unwrap();
+        assert_eq!(back, wire);
+
+        let mut oeb2 = OftpExchangeBuffer::None;
+        oeb2.decode(&back).unwrap();
+        let OftpExchangeBuffer::Esid(got) = oeb2 else {
+            panic!("expected Esid");
+        };
+        assert_eq!(got.reason, expected.reason);
+        assert_eq!(got.reason_text, expected.reason_text);
+        assert_eq!(got.cr, expected.cr);
+    }
+
+    #[test]
+    fn decode_esid_alternate_cr_8d() {
+        let mut wire = esid_wire();
+        *wire.last_mut().unwrap() = ESID_CR_ALT;
+        let mut oeb = OftpExchangeBuffer::None;
+        oeb.decode(&wire).unwrap();
+        let encoded = oeb.encode().unwrap();
+        assert_eq!(encoded.last().copied(), Some(ESID_CR_ALT));
     }
 }

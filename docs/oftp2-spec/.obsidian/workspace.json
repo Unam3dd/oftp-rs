@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "01-rfc5024/09-tables/00-actions-et-predicats.md",
+                "file": "01-rfc5024/09-tables/9.8-session-connection.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "00-actions-et-predicats"
+              "title": "9.8-session-connection"
             }
           }
         ],
@@ -197,22 +197,24 @@
   },
   "active": "8032c04de0c3b82b",
   "lastOpenFiles": [
+    "01-rfc5024/09-tables/00-vue-ensemble.md",
+    "01-rfc5024/09-tables-etats.md",
     "01-rfc5024/09-tables/9.8-session-connection.md",
+    "01-rfc5024/05-commandes/SSRM.md",
+    "01-rfc5024/03-service-etats.md",
+    "01-rfc5024/04-phases-protocole.md",
+    "01-rfc5024/02-reseau-tls.md",
+    "01-rfc5024/01-introduction.md",
+    "03-rust/mapping-etats.md",
+    "01-rfc5024/05-commandes-index.md",
     "01-rfc5024/09-tables/00-actions-et-predicats.md",
     "01-rfc5024/09-tables/9.9-error-abort.md",
     "01-rfc5024/09-tables/9.10-speaker-1.md",
     "01-rfc5024/09-tables/9.12-listener.md",
     "01-rfc5024/09-tables/00-index-transitions-par-PDU.md",
-    "01-rfc5024/09-tables/00-vue-ensemble.md",
     "01-rfc5024/05-commandes/SSID.md",
-    "01-rfc5024/05-commandes/SSRM.md",
     "01-rfc5024/09-tables/_MOC Tables états.md",
-    "01-rfc5024/01-introduction.md",
-    "01-rfc5024/02-reseau-tls.md",
-    "01-rfc5024/03-service-etats.md",
-    "01-rfc5024/05-commandes-index.md",
     "01-rfc5024/07-08-buffers.md",
-    "01-rfc5024/09-tables-etats.md",
     "01-rfc5024/10-11-misc-securite.md",
     "02-cas-speciaux/_MOC Cas spéciaux.md",
     "02-cas-speciaux/exemple-echange-hello-world.md",
@@ -221,8 +223,6 @@
     "02-cas-speciaux/restart.md",
     "01-rfc5024/05-commandes/DATA.md",
     "01-rfc5024/05-commandes/SFPA.md",
-    "01-rfc5024/05-commandes/CD.md",
-    "01-rfc5024/05-commandes/SFID.md",
     "scripts/add-oftp1-diff-sections.py",
     "Cartes/Tables états.canvas",
     "scripts/watch-graph-json.sh",

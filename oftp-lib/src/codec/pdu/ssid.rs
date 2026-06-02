@@ -1,20 +1,20 @@
-mod constant;
-mod error;
-mod fields;
-mod mode;
-mod protocol_level;
+pub mod constant;
+pub mod error;
+pub mod fields;
+pub mod mode;
+pub mod protocol_level;
 
 #[cfg(test)]
 mod tests;
 
 pub use constant::*;
-use crate::fields::parse_yn;
+use super::super::fields::parse_yn;
 pub use error::{SsidError, SsidFieldError};
 use fields::*;
 use mode::*;
 use protocol_level::ProtocolLevel;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ssid {
     pub level: ProtocolLevel,
     pub code: [u8; 25],
@@ -52,7 +52,6 @@ impl Default for Ssid {
 }
 
 impl Ssid {
-
     #[inline]
     fn is_valid_cr(cr: u8) -> bool {
         matches!(cr, 0x0D | 0x8D)
@@ -60,11 +59,10 @@ impl Ssid {
 
     /// Définit le code identifiant (SSIDCODE), paddé à droite avec des espaces.
     pub fn set_code(&mut self, code: &str) -> Result<(), SsidFieldError> {
-        
         if code.len() > 25 {
             return Err(SsidFieldError::CodeTooLong);
         }
-        
+
         self.code = pad_field::<25>(code);
 
         Ok(())
@@ -72,18 +70,16 @@ impl Ssid {
 
     /// Définit le mot de passe (SSIDPSWD), paddé à droite avec des espaces.
     pub fn set_password(&mut self, password: &str) -> Result<(), SsidFieldError> {
-        
         if password.len() > 8 {
             return Err(SsidFieldError::PasswordTooLong);
         }
-        
+
         self.password = pad_field::<8>(password);
-        
+
         Ok(())
     }
 
     pub fn decode(&mut self, buf: &[u8]) -> Result<(), SsidError> {
-
         if buf.len() != SSID_LEN {
             return Err(SsidError::InvalidSsidSizeError);
         }
@@ -116,7 +112,6 @@ impl Ssid {
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, SsidError> {
-
         if !Self::is_valid_cr(self.cr) {
             return Err(SsidError::BadControlReturnError);
         }

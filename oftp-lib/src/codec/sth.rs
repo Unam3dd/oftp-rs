@@ -45,7 +45,7 @@ impl StreamTransmissionHeader {
             return Err(StreamTransmissionHeaderError::InvalidFlagsError);
         }
 
-        if length < STB_LEN_MIN || length > STB_LEN_MAX {
+        if !(STB_LEN_MIN..=STB_LEN_MAX).contains(&length) {
             return Err(StreamTransmissionHeaderError::InvalidLengthError);
         }
 

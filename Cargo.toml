@@ -1,0 +1,3 @@
+[workspace]
+members = ["oftp-lib"]
+resolver = "2"

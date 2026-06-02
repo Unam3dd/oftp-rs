@@ -1,7 +1,7 @@
 use super::constant::{BUF_SIZE_MAX, BUF_SIZE_MIN, CREDIT_MAX};
 use super::error::SsidError;
 
-pub use crate::fields::{pad_field, yn_to_byte};
+pub use super::super::super::fields::{pad_field, yn_to_byte};
 
 pub fn parse_buffer_size_field(field: &[u8]) -> Result<u32, SsidError> {
     

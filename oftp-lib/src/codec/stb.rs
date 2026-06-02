@@ -1,5 +1,5 @@
-use crate::oeb::{OftpExchangeBuffer, OftpExchangeBufferError};
-use crate::sth::{StreamTransmissionHeader, StreamTransmissionHeaderError, STH_SIZE};
+use super::oeb::{OftpExchangeBuffer, OftpExchangeBufferError};
+use super::sth::{StreamTransmissionHeader, StreamTransmissionHeaderError, STH_SIZE};
 
 use thiserror::Error;
 
@@ -82,8 +82,8 @@ impl StreamTransmissionBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pdu::ssrm::{Ssrm, SSRM_LEN, SSRMCMD};
-    use crate::pdu::ssid::{Ssid, SSID_LEN, SSIDCMD};
+    use super::super::pdu::ssrm::{Ssrm, SSRM_LEN, SSRMCMD};
+    use super::super::pdu::ssid::{Ssid, SSID_LEN, SSIDCMD};
 
     fn test_header() -> StreamTransmissionHeader {
         StreamTransmissionHeader {
