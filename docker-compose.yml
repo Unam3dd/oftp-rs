@@ -1,0 +1,66 @@
+networks:
+  net-crusty-oftp:
+    name: net-crusty-oftp
+    driver: bridge
+
+volumes:
+  crusty-db-oftp:
+    name: crusty-db-oftp
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./crusty-db-oftp
+
+services:
+  database:
+    image: postgres:16.3
+    hostname: crusty-db-oftp
+    container_name: crusty-db-oftp
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWD}
+      POSTGRES_INITDB_ARGS: --no-locale --encoding=UTF-8
+      TZ: 'Europe/Paris'
+    volumes:
+      - type: bind
+        source: ./crusty-db-oftp
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.50'
+          memory: 500M
+    ports:
+      - "${DB_PORT}:5432"
+    healthcheck:
+      test: 'pg_isready -U ${DB_USER} -d ${DB_NAME}'
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks:
+      - net-crusty-oftp
+
+  adminer:
+    image: adminer:latest
+    hostname: crusty-adminer-oftp
+    container_name: crusty-adminer-oftp
+    env_file:
+      - .env
+    environment:
+      ADMINER_PORT: ${ADMINER_PORT}
+    restart: always
+    ports:
+      - ${ADMINER_PORT}:8080
+    networks:
+      - net-crusty-oftp
+
