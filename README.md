@@ -1,100 +1,202 @@
-# oftp-rs
+# 🦀 Crusty OFTP
 
-Implémentation Rust du protocole ODETTE-FTP 2.0 (RFC 5024) — POC handshake + transfert fichier.
+> **Crusty OFTP** est une collection d’outils autour du protocole **OFTP / OFTP2** (ODETTE File Transfer Protocol).
+> L’objectif est de proposer une stack Rust moderne, testable et intégrée à l’écosystème **crusty-transfert** :
+> bibliothèque protocole, **client**, **serveur**, et **CLI** pour gérer les configurations.
 
-## Architecture
+---
 
-```text
-oftp-client / oftp-server
-       ↓
-  OftpSession (TCP, handshake, transfert)
-       ↓
-  stream (STH + OEB)  |  commands (SSRM, SSID, SFID, DATA, …)
+## 🎯 Vision du projet
+
+| Composant | Description | Statut |
+|-----------|-------------|--------|
+| 📚 **`oftp-lib`** | Cœur : codec STB/OEB, PDU, FSM de session (RFC 5024 §9.8), négociation SSID | 🟢 En cours — base solide |
+| 📡 **`oftp-client`** | Client OFTP2 (Tokio) — connexion TCP, handshake SSRM / SSID | 🟡 En cours — scénario connexion |
+| 🖥️ **Serveur** | Responder : écoute TCP, transitions B / E / E+G, `cap_mode` | 🔴 À venir |
+| ⚙️ **CLI configuration** | Profils (codes, modes, buffer, politique partenaire, compression…) | 🔴 À venir |
+
+---
+
+## 🏗️ Architecture du dépôt
+
+```
+crusty-oftp/
+├── oftp-lib/       # Bibliothèque : codec + protocole + négociation
+├── oftp-client/    # Binaire client (initiator)
+└── (futur)         # serveur OFTP2, CLI de config
 ```
 
-## Prérequis
+### Couches de `oftp-lib`
 
-- Rust 2024 edition (`cargo` récent)
+| Couche | Rôle |
+|--------|------|
+| **Codec** | Trames **STB** / **STH**, **OEB** (buffer d’échange), encodage/décodage des PDU |
+| **Protocole** | `Session`, `SessionConfig`, machine à états table-driven (connexion §9.8) |
+| **Négociation** | Fusion SSID local + pair → `SessionVars` (§5.3.2, action 5) |
+| **I/O** | Lecture/écriture STB synchrone et **async** (feature `async`) |
 
-## Lancer le POC
+---
 
-Terminal 1 — serveur :
+## 📦 PDU — tableau de suivi
+
+> Ce tableau est la **référence vivante** du dépôt : à mettre à jour à chaque PDU ajouté ou branché dans la FSM.
+
+| Commande | PDU | Codec encode/decode | Dans `OftpExchangeBuffer` | FSM / usage session | Notes |
+|:--------:|:-----|:-------------------:|:-------------------------:|:-------------------:|-------|
+| `I` | **SSRM** — Start Session Ready Message | ✅ | ✅ | ✅ Transition **B** (responder) | Premier message serveur |
+| `X` | **SSID** — Start Session Identity | ✅ | ✅ | ✅ **H**, **D**, **E**, **E+G** | Identité + capacités |
+| `F` | **ESID** — End Session ID | ✅ | ✅ | ✅ Négociation KO, **release** | Raisons ESID typées (`EsidReason`) |
+| `A` | **AUCH** — Authentication Challenge | ✅ | ✅ | ✅ Transitions **I**, **J** | Défi variable ; CMS à brancher |
+| `S` | **AURP** — Authentication Response | ✅ | ✅ | ✅ Transition **K** | 20 octets ; vérif stub / CMS |
+| `J` | **SECD** — Security Change Direction | ✅ | ✅ | ✅ Transitions **D**, **K** | 1 octet |
+| `E` | **SFID** — Start File ID | 🔴 | 🔴 | 🔴 | Début transfert fichier |
+| `H` | **EFID** — End File ID | 🔴 | 🔴 | 🔴 | Fin fichier + signature |
+| `C` | **CD** — Change Direction | 🔴 | 🔴 | 🔴 | Inversion Speaker / Listener |
+| … | **EERP** / **NERP**, **CDT**, etc. | 🔴 | 🔴 | 🔴 | Phases fichier & fin de session |
+
+**Légende :** ✅ implémenté · 🟡 partiel · 🔴 non implémenté
+
+---
+
+## 🔐 Session & configuration
+
+`SessionConfig` permet de piloter explicitement le **SSID émis** et les règles de session :
+
+| Champ / builder | Rôle |
+|-----------------|------|
+| `with_code` / `with_password` | Identité locale (SSIDCODE / SSIDPSWD) |
+| `with_mode` | Capacité émetteur/récepteur annoncée (`S` / `R` / `B`) |
+| `with_cap_mode` | Contrainte site **P4** (responder) — distinct du `mode` SSID |
+| `with_level`, `with_buffer_size`, `with_credit` | Niveau protocole, taille buffer, fenêtre |
+| `with_compression`, `with_restart`, `with_special_logic` | Options négociées (fusion AND / min) |
+| `with_authentication` | Indicateur SSIDAUTH (`Y` / `N`) |
+| `with_partner_policy` | Validation du SSID **reçu** (code / mot de passe attendus) |
+
+Exemple :
+
+```rust
+use oftp_lib::{SessionConfig, PartnerPolicy};
+use oftp_lib::codec::pdu::ssid::{SsidMode, protocol_level::ProtocolLevel};
+
+let config = SessionConfig::default()
+    .with_code("MON_CLIENT")?
+    .with_mode(SsidMode::SendOnly)
+    .with_buffer_size(4096)?
+    .with_level(ProtocolLevel::Rev20)
+    .with_partner_policy(PartnerPolicy::RequireCode("MON_SERVEUR".into()));
+```
+
+---
+
+## 🤝 Négociation SSID (état actuel)
+
+Après échange des SSID, `negotiate_ssid` applique :
+
+| Étape | Règle | Échec → ESID |
+|-------|--------|----------------|
+| 1 | **P4** `cap_mode` (responder uniquement) | Mode incompatible |
+| 2 | **Partner policy** (code / mot de passe du pair) | 03 / 04 |
+| 3 | **Level** — niveaux identiques + supportés | Capacités incompatibles |
+| 4 | **Auth** — SSIDAUTH identiques (Y/Y ou N/N) | Auth incompatible |
+| 5 | **Special logic** — pas de `Y` sur TCP | Capacités incompatibles |
+| 6 | **Mode** — pas S+S ni R+R ; complémentaires → `Both` | Mode incompatible |
+| 7 | **Merge** — `min` buffer/credit ; **AND** compression/restart | — |
+
+Résultat stocké dans `SessionVars` (`buf_size`, `window`, `mode`, `compression`, etc.).
+
+---
+
+## 🔄 Machine à états — connexion (§9.8)
+
+### États modélisés
+
+| État | Rôle |
+|------|------|
+| `Idle` | Pas de session |
+| `InitWaitRm` / `InitWaitSsid` | Initiator : SSRM puis SSID pair |
+| `RespNcOnly` / `RespWaitConRs` | Responder : après SSRM, attente / validation |
+| `IdleSp` / `IdleLi` | Session établie (Speaker / Listener) |
+| `WaitNDisc` | Fin de session (ESID), attente fermeture |
+
+### Transitions implémentées (connexion)
+
+| ID | Transition | Rôle | Statut |
+|:--:|------------|------|--------|
+| **B** | SSRM reçu → envoi SSRM + état responder | Responder | ✅ |
+| **H** | SSRM → envoi SSID local | Initiator | ✅ |
+| **D** | SSID pair → négociation → `IdleSp` | Initiator | ✅ |
+| **E** | SSID pair → négociation → `RespWaitConRs` | Responder | ✅ |
+| **E+G** | SSID pair + envoi SSID local → `IdleLi` | Responder (`auto_accept`) | ✅ |
+| **F** | ESID reçu en handshake → `Idle` | Initiator | ✅ |
+| **Release** | Demande fin session → ESID | Les deux | ✅ |
+| **WF_SECD** / auth **Y** | Chaîne SECD → AUCH → AURP | — | 🔴 À faire |
+
+---
+
+## 🛠️ Prérequis & commandes
+
+**Prérequis :** [Rust](https://www.rust-lang.org/) stable (édition 2021)
 
 ```bash
-cargo run --bin oftp-server
+# Compiler tout le workspace
+cargo build
+
+# Tests de la bibliothèque
+cargo test -p oftp-lib
+
+# Lancer le client (adresse optionnelle)
+cargo run -p oftp-client -- 127.0.0.1:3305
 ```
 
-Terminal 2 — client (handshake seul) :
+Le client se connecte en TCP, lit le **SSRM**, envoie le **SSID** via la FSM, reçoit le SSID serveur et poursuit la négociation (transition **D**).
 
-```bash
-cargo run --bin oftp-client -- 127.0.0.1:3305
-```
+---
 
-Envoi d'un fichier :
+## 🗺️ Feuille de route protocolaire
 
-```bash
-echo "contenu test" > /tmp/test.txt
-cargo run --bin oftp-client -- 127.0.0.1:3305 --file /tmp/test.txt
-```
+### Phase 1 — Connexion & session ✅ *en cours*
 
-Le serveur enregistre le fichier dans le répertoire courant (option `--output-dir`).
+- [x] Codec STB / OEB, SSRM, SSID, ESID
+- [x] FSM connexion (B, H, D, E, E+G, F, release)
+- [x] Négociation SSID + `SessionConfig` / `SessionVars`
+- [x] Client Tokio (handshake de base)
+- [ ] Binaire **serveur** responder complet
+- [ ] Tests d’interop avec un partenaire OFTP réel
 
-## Logs
+### Phase 2 — Authentification sécurisée 🔴
 
-```bash
-RUST_LOG=oftp_rs=debug cargo run --bin oftp-client -- 127.0.0.1:3305 --file /tmp/test.txt
-```
+- [ ] PDU SECD, AUCH, AURP
+- [ ] Branches FSM si `SSIDAUTH = Y`
+- [ ] Gestion des raisons ESID 11 / 12 côté applicatif
 
-## Tests
+### Phase 3 — Transfert de fichiers 🔴
 
-```bash
-cargo test
-```
+- [ ] SFID, EFID, CD (change direction)
+- [ ] États fichier §9.8 (hors connexion seule)
+- [ ] Fenêtre, crédits, restart, compression sur flux données
+- [ ] EERP / NERP, fin de session complète
 
-## Périmètre actuel
+### Phase 4 — Outils & exploitation 🔴
 
-- Handshake initiateur / répondeur (SSRM, SSID)
-- Transfert fichier : SFID → SFPA → DATA (+ CDT) → EFID → EFPA → **EERP → RTR**
-- Fin de session (ESID)
-- Modules PDU : SFPA, SFNA, DATA, CDT, EFID, EFPA, EFNA, CD, EERP, RTR, ESID
+- [ ] **CLI** : créer / éditer / valider des profils `SessionConfig`
+- [ ] Logs structurés, traces PDU (mode debug)
+- [ ] Documentation opérateur (codes ODETTE, mapping ESID)
 
-Non implémenté : sécurité (SECD/AUCH), compression, restart, NERP, table RFC complète.
+---
 
-## Interop mendelson
+## 📚 Références
 
-Si mendelson affiche **« Attente de confirmation »**, c’était en général l’absence d’**EERP** après réception du fichier — corrigé dans `run_receive_file`.
+- [ODETTE — OFTP2](https://www.odette.org/) (RFC 5024 et documentation associée)
+- Projet parent : **crusty-transfert**
 
-Checklist côté mendelson (partenaire vers `oftp-server`) :
+---
 
-| Paramètre | Valeur typique |
-|-----------|----------------|
-| Protocole | OFTP 2.0 (niveau 5) |
-| Hôte | `127.0.0.1` (ou IP du serveur) |
-| Port | `3305` (défaut du binaire) |
-| SSIDCODE | identique à `--ssid-code` du serveur |
-| Mot de passe | identique à `--password` si utilisé |
-| TLS / chiffrement | désactivé (comme le POC) |
+## 📄 Licence
 
-Le serveur doit tourner **avant** l’envoi mendelson :
+*À préciser.*
 
-```bash
-RUST_LOG=oftp_rs=debug cargo run --bin oftp-server -- --ssid-code "VOTRE_CODE_ODETTE"
-```
+---
 
-Les fichiers reçus apparaissent dans le répertoire courant (ou `--output-dir`).
-
-### Problèmes mendelson fréquents (d’après les logs)
-
-| Symptôme dans mendelson | Cause | Action |
-|-------------------------|-------|--------|
-| `ODETTE id not known` | SSIDCODE inconnu | Créer le partenaire avec le même code que `--ssid-code` (`O01779122072341` → partenaire **Stales Business**) |
-| `Invalid filename` / minuscules dans SFIDDSN | DSN en minuscules | Le client convertit le nom en **MAJUSCULES** (`rfc5024.txt` → `RFC5024.TXT`) |
-| `0 Byte reçu` | Fichier source vide | Envoyer un fichier non vide : `dd if=/dev/zero bs=1024 count=1 of=/tmp/TEST` |
-| `Attente EERP` + `127.0.0.1:3305/<unresolved>:3305` | mendelson tente une **connexion sortante** vers une adresse invalide (souvent vers lui-même) | Dans le partenaire **Stales Business** : corriger hôte/port d’appel (ex. `127.0.0.1` + port où écoute `oftp-server`, ex. `3306`), supprimer tout hostname `<unresolved>`. Garder la session TCP ouverte côté client jusqu’à EERP+RTR. |
-
-Exemple d’envoi vers mendelson (port **3305** = mendelson écoute) :
-
-```bash
-dd if=/dev/zero bs=1024 count=1 of=/tmp/TEST
-RUST_LOG=oftp_rs=debug cargo run --bin oftp-client -- 127.0.0.1:3305 --file /tmp/TEST --ssid-code "O01779122072341"
-```
+<p align="center">
+  <sub>🦀 Implémentation Rust — tableau PDU et roadmap mis à jour au fil des merges.</sub>
+</p>

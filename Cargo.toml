@@ -1,22 +1,6 @@
-[package]
-name = "oftp-rs"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = ["oftp-lib", "oftp-client"]
 
-[lib]
-path = "src/common/common.rs"
-
-[[bin]]
-name = "oftp-client"
-path = "src/oftp-client/main.rs"
-
-[[bin]]
-name = "oftp-server"
-path = "src/oftp-server/main.rs"
-
-[dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
-thiserror = "2.0.18"
-tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "net", "io-util", "fs", "time"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+[workspace.dependencies]
+oftp-lib = { path = "oftp-lib", features = ["async"] }
